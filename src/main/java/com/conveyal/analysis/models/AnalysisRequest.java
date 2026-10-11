@@ -56,6 +56,8 @@ public class AnalysisRequest {
     public float toLon;
     public int fromTime;
     public int monteCarloDraws = 200;
+    public boolean lockSchedules = false;
+    public Integer randomSeed = null;
     public int toTime;
     public String transitModes;
     public float walkSpeed;
@@ -262,6 +264,8 @@ public class AnalysisRequest {
         task.suboptimalMinutes = suboptimalMinutes;
 
         task.monteCarloDraws = monteCarloDraws;
+        task.lockSchedules = lockSchedules;
+        task.randomSeed = randomSeed;
         task.percentiles = percentiles;
         task.cutoffsMinutes = cutoffsMinutes;
         
