@@ -13,6 +13,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     # Start a separate docker container that we can contact over TCP (for tests)
     # Apparently there's something tricky going on with the port binding though
     # https://help.github.com/en/articles/workflow-syntax-for-github-actions#jobsjob_idservices
@@ -56,6 +59,15 @@ jobs:
       run: |
         cp analysis.properties.template analysis.properties
         gradle testRunnable -x test
+    - name: Create fork prerelease
+      if: github.repository == 'e-kotov/r5' && startsWith(github.ref, 'refs/tags/v')
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: >-
+        gh release create "$GITHUB_REF_NAME" build/libs/*-all.jar
+        --prerelease
+        --generate-notes
+        --title "R5 $GITHUB_REF_NAME (Egor Kotov prerelease)"
     - name: Publish to GH Packages
       # Supply access token to build.gradle (used in publishing.repositories.maven.credentials)
       if: github.repository == 'conveyal/r5'
