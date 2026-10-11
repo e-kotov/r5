@@ -44,10 +44,16 @@ public class FrequencyRandomOffsets {
     private final Map<TripSchedule, int[]> offsetsForTripSchedule = new HashMap<>();
 
     /** The mersenne twister is a higher quality random number generator than the one included with Java */
-    private MersenneTwister mt = new MersenneTwister();
+    private final MersenneTwister mt;
 
     public FrequencyRandomOffsets(TransitLayer data) {
+        this(data, null);
+    }
+
+    public FrequencyRandomOffsets(TransitLayer data, ProfileRequest request) {
         this.data = data;
+        Integer seed = request == null ? null : request.getMonteCarloSeed();
+        this.mt = seed == null ? new MersenneTwister() : new MersenneTwister(seed);
         if (!data.hasFrequencies) {
             return;
         }

@@ -240,6 +240,19 @@ public class ProfileRequest implements Serializable, Cloneable {
      */
     public int monteCarloDraws = 220;
 
+    /** Lock randomized frequency schedules for reproducible Monte Carlo runs. */
+    public boolean lockSchedules = false;
+
+    /** Optional user-selected seed for Monte Carlo schedule and departure-time sampling. */
+    public Integer randomSeed = null;
+
+    /** Return a seed for stochastic routing, or null when each run should use a fresh random seed. */
+    public Integer getMonteCarloSeed () {
+        if (randomSeed != null) return randomSeed;
+        if (!lockSchedules) return null;
+        return (int) (fromLat * 1e9);
+    }
+
     /**
      * WARNING This whole tree of classes contains non-primitive compound fields. Cloning WILL NOT DEEP COPY these
      * fields. Modifying some aspects of the cloned object may modify the same aspects of the one it was cloned from.
