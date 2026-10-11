@@ -43,12 +43,22 @@ jobs:
     - name: Build and test
       run: gradle build
     # Check that build product is able to start up as a backend server before handing it to end-to-end testing
+    - name: Build standalone R5 JAR
+      run: gradle shadowJar
+    - name: Upload standalone R5 JAR
+      uses: actions/upload-artifact@v4
+      with:
+        name: r5-standalone-jar-${{ github.sha }}
+        path: build/libs/*-all.jar
+        if-no-files-found: error
+        retention-days: 14
     - name: Ensure backend runnable
       run: |
         cp analysis.properties.template analysis.properties
         gradle testRunnable -x test
     - name: Publish to GH Packages
       # Supply access token to build.gradle (used in publishing.repositories.maven.credentials)
+      if: github.repository == 'conveyal/r5'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: gradle publish
