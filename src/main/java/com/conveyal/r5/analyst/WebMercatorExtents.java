@@ -39,7 +39,7 @@ public class WebMercatorExtents implements Serializable {
     public static final int DEFAULT_ZOOM = 9;
     public static final int MIN_ZOOM = 9;
     public static final int MAX_ZOOM = 12;
-    private static final int MAX_GRID_CELLS = 5_000_000;
+    private static final int MAX_GRID_CELLS = 50_000_000;
 
     /** The pixel number of the westernmost pixel (smallest x value). */
     public final int west;
