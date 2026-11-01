@@ -39,7 +39,8 @@ public class WebMercatorExtents implements Serializable {
     public static final int DEFAULT_ZOOM = 9;
     public static final int MIN_ZOOM = 9;
     public static final int MAX_ZOOM = 12;
-    private static final int MAX_GRID_CELLS = 50_000_000;
+    /// The largest grid that Java int arrays can index (the JDK's soft maximum array length).
+    private static final long MAX_GRID_CELLS = Integer.MAX_VALUE - 8;
 
     /** The pixel number of the westernmost pixel (smallest x value). */
     public final int west;
@@ -329,11 +330,13 @@ public class WebMercatorExtents implements Serializable {
                     "Requested zoom (%s) is outside valid range (%s - %s)", this.zoom, MIN_ZOOM, MAX_ZOOM
             ));
         }
-        if (this.height * this.width > MAX_GRID_CELLS) {
+        // Multiply in long arithmetic: an int product of large dimensions can wrap around and pass the check.
+        final long nCells = (long) this.height * this.width;
+        if (this.width < 0 || this.height < 0 || nCells > MAX_GRID_CELLS) {
             throw AnalysisServerException.badRequest(String.format(
                     "Requested number of destinations (%s) exceeds limit (%s). " +
                             "Set smaller custom geographic bounds or a lower zoom level.",
-                    this.height * this.width, MAX_GRID_CELLS
+                    nCells, MAX_GRID_CELLS
             ));
         }
     }

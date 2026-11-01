@@ -1,5 +1,6 @@
 package com.conveyal.r5.analyst;
 
+import com.conveyal.analysis.AnalysisServerException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -84,6 +85,24 @@ class WebMercatorExtentsTest {
         // Try taking these single-pixel extents through WGS84 for good measure.
         WebMercatorExtents wme2 = WebMercatorExtents.forTrimmedWgsEnvelope(webMercatorExtents.toWgsEnvelope(), zoom);
         Assertions.assertEquals(webMercatorExtents, wme2);
+    }
+
+    /// Raised grid size limit: large countries and Europe at zoom 9 are accepted, while products that overflow int
+    /// arithmetic (which previously wrapped around and passed) and negative dimensions are rejected.
+    @Test
+    void gridSizeLimit () {
+        // Sweden's recorded zoom 9 street network envelope: 52,694,883 cells, over the previous 50 million limit.
+        Assertions.assertDoesNotThrow(() -> new WebMercatorExtents(69_187, 30_302, 4811, 10953, 9));
+        // EPSG:3035 Europe area of use, north edge held to 80 N: 1,217,291,406 cells at zoom 9.
+        WebMercatorExtents europe = WebMercatorExtents.forBufferedWgsEnvelope(new Envelope(-35.58, 44.83, 24.6, 80.0), 9);
+        Assertions.assertEquals(1_217_291_406L, (long) europe.width * europe.height);
+        // Edge of the limit (Integer.MAX_VALUE - 8): 46340^2 fits, 46341^2 does not.
+        Assertions.assertDoesNotThrow(() -> new WebMercatorExtents(0, 0, 46_340, 46_340, 12));
+        Assertions.assertThrows(AnalysisServerException.class, () -> new WebMercatorExtents(0, 0, 46_341, 46_341, 12));
+        // 65536 * 65536 wraps to 0 as an int and 50,000 * 50,000 to a negative number.
+        Assertions.assertThrows(AnalysisServerException.class, () -> new WebMercatorExtents(0, 0, 65_536, 65_536, 9));
+        Assertions.assertThrows(AnalysisServerException.class, () -> new WebMercatorExtents(0, 0, 50_000, 50_000, 9));
+        Assertions.assertThrows(AnalysisServerException.class, () -> new WebMercatorExtents(0, 0, -1, 10, 9));
     }
 
 }

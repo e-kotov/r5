@@ -798,7 +798,7 @@ public class Grid extends PointSet {
     }
 
     public static void checkPixelCount (WebMercatorExtents extents, int layers) {
-        int pixels = extents.width * extents.height * layers;
+        long pixels = (long) extents.width * extents.height * layers;
         if (pixels > MAX_PIXELS) {
             throw new DataSourceException("Number of zoom level " + extents.zoom + " pixels (" + pixels + ")"  +
                     "exceeds limit (" + MAX_PIXELS +"). Reduce the zoom level or the file's extents or number of " +
