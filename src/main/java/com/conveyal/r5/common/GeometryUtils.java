@@ -29,8 +29,8 @@ public class GeometryUtils {
     /// relative to RADIUS_OF_EARTH_M which is a slightly better estimate at mid-latitudes.
     public static final double TURF_RADIUS_OF_EARTH_M = 6_371_008.8;
 
-    /// Maximum area allowed for the bounding box of uploaded files -- large enough for the USA.
-    private static final double MAX_BOUNDING_BOX_AREA_SQ_KM = 10_000_000;
+    // The maximum area allowed for bounding boxes is configurable: see SizeLimits.MAX_BOUNDING_BOX_AREA_PROPERTY
+    // and SizeLimits.DEFAULT_MAX_BOUNDING_BOX_AREA_SQ_KM. It is read each time an envelope is checked.
 
     /// Estimate distance between points on Earth using a spherical approximation (haversine
     /// formula). In the past, we had a fastDistance function that would estimate this quickly, but
@@ -182,10 +182,14 @@ public class GeometryUtils {
     public static void checkWgsEnvelopeSize (Envelope envelope, String thingBeingChecked) {
         checkWgsEnvelopeRange(envelope);
         checkWgsEnvelopeAntimeridian(envelope, thingBeingChecked);
-        if (roughWgsEnvelopeArea(envelope) > MAX_BOUNDING_BOX_AREA_SQ_KM) {
+        final double maxArea = SizeLimits.maxBoundingBoxAreaSqKm();
+        final double area = roughWgsEnvelopeArea(envelope);
+        if (area > maxArea) {
             throw new IllegalArgumentException(String.format(
-                    "Geographic extent of %s (%.0f km2) exceeds limit of %.0f km2.",
-                    thingBeingChecked, roughWgsEnvelopeArea(envelope), MAX_BOUNDING_BOX_AREA_SQ_KM
+                    "Geographic extent of %s (%.0f km2) exceeds limit of %.0f km2. The limit can be raised with " +
+                    "the JVM option -D%s=<km2> (at most %.0f).",
+                    thingBeingChecked, area, maxArea,
+                    SizeLimits.MAX_BOUNDING_BOX_AREA_PROPERTY, SizeLimits.ABSOLUTE_MAX_BOUNDING_BOX_AREA_SQ_KM
             ));
         }
     }

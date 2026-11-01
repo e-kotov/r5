@@ -83,7 +83,7 @@ public class TimeGridWriter {
         this.travelTimeResult = travelTimeResult;
         this.analysisWorkerTask = analysisWorkerTask;
         this.extents = WebMercatorExtents.forTask(analysisWorkerTask);
-        if (travelTimeResult.nPoints != extents.width * extents.height) {
+        if (travelTimeResult.nPoints != extents.nCells()) {
             throw new ParameterException("Travel time cannot be for a grid of this dimension.");
         }
         nIntegersInOuput = (long) travelTimeResult.nSamplesPerPoint * travelTimeResult.nPoints;

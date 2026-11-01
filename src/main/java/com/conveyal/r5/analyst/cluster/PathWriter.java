@@ -2,6 +2,7 @@ package com.conveyal.r5.analyst.cluster;
 
 import com.conveyal.analysis.components.WorkerComponents;
 import com.conveyal.r5.analyst.PersistenceBuffer;
+import com.conveyal.r5.common.SizeLimits;
 import com.conveyal.r5.profile.StreetMode;
 import com.conveyal.r5.transit.path.Path;
 import com.conveyal.r5.transit.path.PatternSequence;
@@ -76,7 +77,7 @@ public class PathWriter {
     /** Constructor. Holds onto the task object, which is used to create unique names for the results files. */
     public PathWriter (AnalysisWorkerTask task) {
         this.task = task;
-        this.nTargets = task.width * task.height;
+        this.nTargets = SizeLimits.checkedCellCount(task.width, task.height);
         indexForPatternSequence = new TObjectIntHashMap<>(nTargets / 2, 0.5f, NO_PATH);
         nPathsPerTarget = task.nPathsPerTarget;
     }

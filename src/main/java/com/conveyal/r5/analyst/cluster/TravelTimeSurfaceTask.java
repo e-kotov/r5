@@ -3,6 +3,7 @@ package com.conveyal.r5.analyst.cluster;
 import com.conveyal.r5.analyst.FreeFormPointSet;
 import com.conveyal.r5.analyst.PointSet;
 import com.conveyal.r5.analyst.WebMercatorExtents;
+import com.conveyal.r5.common.SizeLimits;
 import com.conveyal.r5.profile.ProfileRequest;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.slf4j.Logger;
@@ -67,7 +68,7 @@ public class TravelTimeSurfaceTask extends AnalysisWorkerTask {
         // In normal usage this requirement is validated by TravelTimeReducer#checkOpportunityExtents but that function
         // only checks when we're computing accessibility, and is only called when destinations are gridded. The
         // assertions here serve to further verify this requirement, as we've seen it violated before in tests.
-        final int nTargets = width * height;
+        final int nTargets = SizeLimits.checkedCellCount(width, height);
         if (destinationPointSets != null) {
             for (PointSet pointSet : destinationPointSets) {
                 checkState(

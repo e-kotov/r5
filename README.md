@@ -25,6 +25,11 @@ The Conveyal team is always eager to see cutting-edge uses of our software, so f
 
 ## Configuration
 
+**Size limits (e-kotov fork):** the maximum bounding-box area and Web Mercator grid size are configurable with the JVM
+options `-Dr5.maxBoundingBoxAreaSqKm=<km2>` (default 100,000,000) and `-Dr5.maxGridCells=<cells>` (default
+1,500,000,000). See [docs/large-extents.md](docs/large-extents.md) for validated reference extents (Europe, China,
+contiguous US), unsupported cases (the whole US across the antimeridian) and memory requirements.
+
 It is possible to run a Conveyal Analysis UI and backend locally (e.g. on your laptop), which should produce results identical to those from our hosted platform. However, the computations for more complex analyses may take quite a long time. Extension points in the source code allow the system to be tailored to cloud computing environments to enable faster parallel computation.
 
 ### Running Locally

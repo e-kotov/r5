@@ -63,11 +63,27 @@ jobs:
       if: github.repository == 'e-kotov/r5' && startsWith(github.ref, 'refs/tags/v')
       env:
         GH_TOKEN: ${{ github.token }}
-      run: >-
-        gh release create "$GITHUB_REF_NAME" build/libs/*-all.jar
-        --prerelease
-        --generate-notes
-        --title "R5 $GITHUB_REF_NAME (Egor Kotov prerelease)"
+      # Publish the JAR with a SHA-256 checksum file. If docs/release-notes/<tag>.md exists it is used as the
+      # release notes (followed by the checksum and the generated changelog).
+      run: |
+        set -euo pipefail
+        jars=(build/libs/*-all.jar)
+        test "${#jars[@]}" -eq 1
+        jar="${jars[0]}"
+        (cd build/libs && sha256sum "$(basename "$jar")" > "$(basename "$jar").sha256")
+        notes="$RUNNER_TEMP/release-notes.md"
+        if [ -f "docs/release-notes/$GITHUB_REF_NAME.md" ]; then
+          cat "docs/release-notes/$GITHUB_REF_NAME.md" > "$notes"
+        else
+          : > "$notes"
+        fi
+        printf '\n## SHA-256\n\n```\n%s\n```\n' "$(cat "$jar.sha256")" >> "$notes"
+        cat "$notes"
+        gh release create "$GITHUB_REF_NAME" "$jar" "$jar.sha256" \
+          --prerelease \
+          --generate-notes \
+          --notes-file "$notes" \
+          --title "R5 $GITHUB_REF_NAME (Egor Kotov prerelease)"
     - name: Publish to GH Packages
       # Supply access token to build.gradle (used in publishing.repositories.maven.credentials)
       if: github.repository == 'conveyal/r5'

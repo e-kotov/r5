@@ -2,6 +2,7 @@ package com.conveyal.r5.analyst;
 
 import com.conveyal.analysis.AnalysisServerException;
 import com.conveyal.r5.analyst.cluster.AnalysisWorkerTask;
+import com.conveyal.r5.common.SizeLimits;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Coordinate;
@@ -39,7 +40,9 @@ public class WebMercatorExtents implements Serializable {
     public static final int DEFAULT_ZOOM = 9;
     public static final int MIN_ZOOM = 9;
     public static final int MAX_ZOOM = 12;
-    private static final int MAX_GRID_CELLS = 50_000_000;
+
+    /// The maximum number of cells is configurable, see SizeLimits.MAX_GRID_CELLS_PROPERTY and
+    /// SizeLimits.DEFAULT_MAX_GRID_CELLS. It is read when each instance is constructed.
 
     /** The pixel number of the westernmost pixel (smallest x value). */
     public final int west;
@@ -144,6 +147,17 @@ public class WebMercatorExtents implements Serializable {
      * The real solution would be to always specify origin grids in integer form, but our current API does not allow this.
      */
     public static WebMercatorExtents forWgsEnvelope (Envelope wgsEnvelope, int zoom) {
+        int[] wnwh = pixelBoundsForWgsEnvelope(wgsEnvelope, zoom);
+        return new WebMercatorExtents(wnwh[0], wnwh[1], wnwh[2], wnwh[3], zoom);
+    }
+
+    /**
+     * The pixel arithmetic behind forWgsEnvelope, without constructing (and therefore without size-checking) the
+     * extents. This allows reporting or testing the dimensions that a given envelope would require, including
+     * envelopes that the size check would reject. It allocates nothing proportional to the number of cells.
+     * @return an array of {west, north, width, height} in pixels at the given zoom level.
+     */
+    public static int[] pixelBoundsForWgsEnvelope (Envelope wgsEnvelope, int zoom) {
         // Conversion of WGS84 to web Mercator pixels truncates intra-pixel coordinates toward the origin (northwest).
         // Note that web Mercator coordinates increase from north to south, so maximum latitude is minimum Mercator y.
         int north = latToPixel(wgsEnvelope.getMaxY(), zoom);
@@ -155,7 +169,15 @@ public class WebMercatorExtents implements Serializable {
         // Therefore they should always have positive nonzero integer width and height.
         checkState(width >= 1, "Web Mercator extents should always have a width of one or more.");
         checkState(height >= 1, "Web Mercator extents should always have a height of one or more.");
-        return new WebMercatorExtents(west, north, width, height, zoom);
+        return new int[] {west, north, width, height};
+    }
+
+    /// Like forBufferedWgsEnvelope, but only returns the {west, north, width, height} pixel bounds without
+    /// constructing or size-checking the extents.
+    public static int[] pixelBoundsForBufferedWgsEnvelope (Envelope wgsEnvelope, int zoom) {
+        wgsEnvelope = wgsEnvelope.copy();
+        wgsEnvelope.expandBy(WGS_EPSILON);
+        return pixelBoundsForWgsEnvelope(wgsEnvelope, zoom);
     }
 
     /**
@@ -203,9 +225,8 @@ public class WebMercatorExtents implements Serializable {
      */
     public static WebMercatorExtents forBufferedWgsEnvelope (Envelope wgsEnvelope, int zoom) {
         // Expand a protective copy of the envelope slightly.
-        wgsEnvelope = wgsEnvelope.copy();
-        wgsEnvelope.expandBy(WGS_EPSILON);
-        return WebMercatorExtents.forWgsEnvelope(wgsEnvelope, zoom);
+        int[] wnwh = pixelBoundsForBufferedWgsEnvelope(wgsEnvelope, zoom);
+        return new WebMercatorExtents(wnwh[0], wnwh[1], wnwh[2], wnwh[3], zoom);
     }
 
     /**
@@ -320,8 +341,11 @@ public class WebMercatorExtents implements Serializable {
      * constructing a Grid.
      *
      * An analysis destination grid might become problematic at a smaller size than an opportunity data grid. But until
-     * we have a reason to distinguish different situations, MAX_GRID_CELLS is defined as a constant in this class.
-     * If needed, we can make the max size a method parameter and pass in different limits in different contexts.
+     * we have a reason to distinguish different situations, a single limit applies to all grids. It defaults to
+     * SizeLimits.DEFAULT_MAX_GRID_CELLS and can be set with the JVM system property -Dr5.maxGridCells=N, up to
+     * SizeLimits.ABSOLUTE_MAX_GRID_CELLS (the largest grid that can be indexed with Java int arrays). The number of
+     * cells is computed in checked long arithmetic before comparison, so it cannot overflow. Passing this check does
+     * not guarantee that grid-shaped data structures (linkages, opportunity grids, travel time arrays) fit in memory.
      */
     public void checkGridSize () {
         if (this.zoom < MIN_ZOOM || this.zoom > MAX_ZOOM) {
@@ -329,13 +353,36 @@ public class WebMercatorExtents implements Serializable {
                     "Requested zoom (%s) is outside valid range (%s - %s)", this.zoom, MIN_ZOOM, MAX_ZOOM
             ));
         }
-        if (this.height * this.width > MAX_GRID_CELLS) {
+        if (this.width < 0 || this.height < 0) {
             throw AnalysisServerException.badRequest(String.format(
-                    "Requested number of destinations (%s) exceeds limit (%s). " +
-                            "Set smaller custom geographic bounds or a lower zoom level.",
-                    this.height * this.width, MAX_GRID_CELLS
+                    "Web Mercator grid dimensions must be non-negative (width %d, height %d).", this.width, this.height
             ));
         }
+        // The whole world is 256 * 2^zoom pixels across in each dimension. No valid grid can be larger.
+        final long worldPixels = 256L << this.zoom;
+        if (this.width > worldPixels || this.height > worldPixels) {
+            throw AnalysisServerException.badRequest(String.format(
+                    "Web Mercator grid dimensions (width %d, height %d) exceed the size of the world at zoom %d " +
+                            "(%d pixels).", this.width, this.height, this.zoom, worldPixels
+            ));
+        }
+        final long nCells = Math.multiplyExact((long) this.width, (long) this.height);
+        final long maxCells = SizeLimits.maxGridCells();
+        if (nCells > maxCells) {
+            throw AnalysisServerException.badRequest(String.format(
+                    "Requested number of destinations (%d = width %d x height %d at zoom %d) exceeds limit (%d). " +
+                            "Set smaller custom geographic bounds or a lower zoom level, or raise the limit with " +
+                            "the JVM option -D%s=<cells> (at most %d). A larger grid needs proportionally more memory.",
+                    nCells, this.width, this.height, this.zoom, maxCells,
+                    SizeLimits.MAX_GRID_CELLS_PROPERTY, SizeLimits.ABSOLUTE_MAX_GRID_CELLS
+            ));
+        }
+    }
+
+    /// @return the number of cells in this grid (width * height). Construction has already verified that this fits
+    /// in a Java int index, so the conversion here is checked only defensively.
+    public int nCells () {
+        return SizeLimits.checkedCellCount(this.width, this.height);
     }
 
 }

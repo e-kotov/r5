@@ -49,6 +49,12 @@ test {
                '--add-opens=java.base/java.time=ALL-UNNAMED',
                '--add-opens=java.base/java.time.zone=ALL-UNNAMED',
                '--add-opens=java.base/java.lang=ALL-UNNAMED']
+    // Opt-in, separately bounded large-grid smoke test (skipped otherwise):
+    // gradle test --tests '*LargeGridSmokeTest' -Pr5LargeGridSmoke [-Pr5LargeGridSmokeHeap=4g]
+    if (project.hasProperty('r5LargeGridSmoke')) {
+        systemProperty 'r5.largeGridSmoke', 'true'
+        maxHeapSize = project.findProperty('r5LargeGridSmokeHeap') ?: '4g'
+    }
 }
 
 // Set up publication of jar files to GitHub Packages Maven repository.

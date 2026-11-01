@@ -457,7 +457,7 @@ public class Grid extends PointSet {
     }
 
     public int featureCount() {
-        return extents.width * extents.height;
+        return extents.nCells();
     }
 
     /* Functions below derived from http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Mathematics */
@@ -798,8 +798,9 @@ public class Grid extends PointSet {
     }
 
     public static void checkPixelCount (WebMercatorExtents extents, int layers) {
-        int pixels = extents.width * extents.height * layers;
-        if (pixels > MAX_PIXELS) {
+        // Checked long arithmetic: width * height * layers can exceed the int range for large grids.
+        long pixels = Math.multiplyExact(Math.multiplyExact((long) extents.width, (long) extents.height), (long) layers);
+        if (layers < 0 || pixels > MAX_PIXELS) {
             throw new DataSourceException("Number of zoom level " + extents.zoom + " pixels (" + pixels + ")"  +
                     "exceeds limit (" + MAX_PIXELS +"). Reduce the zoom level or the file's extents or number of " +
                     "numeric attributes.");

@@ -3,6 +3,7 @@ package com.conveyal.analysis.components.broker;
 import com.conveyal.r5.analyst.Grid;
 import com.conveyal.r5.analyst.WorkerCategory;
 import com.conveyal.r5.analyst.cluster.RegionalTask;
+import com.conveyal.r5.common.SizeLimits;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -142,7 +143,7 @@ public class Job {
             checkNotNull(templateTask.originPointSet);
             this.nTasksTotal = templateTask.originPointSet.featureCount();
         } else {
-            this.nTasksTotal = templateTask.width * templateTask.height;
+            this.nTasksTotal = SizeLimits.checkedCellCount(templateTask.width, templateTask.height);
         }
 
         this.completedTasks = new BitSet(nTasksTotal);

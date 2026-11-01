@@ -220,7 +220,7 @@ public class LinkedPointSet implements Serializable {
         this.baseLinkage = sourceLinkage;
         this.cropped = true; // This allows calling the correct cost table builder function later, see Javadoc on field.
 
-        int nCells = subGrid.extents.width * subGrid.extents.height;
+        int nCells = subGrid.extents.nCells();
         edges = new int[nCells];
         distancesToEdge_mm = new int[nCells];
         distances0_mm = new int[nCells];

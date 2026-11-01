@@ -73,7 +73,7 @@ public class WebMercatorGridPointSet extends PointSet implements Serializable {
 
     @Override
     public int featureCount() {
-        return extents.height * extents.width;
+        return extents.nCells();
     }
 
     @Override
