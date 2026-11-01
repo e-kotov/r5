@@ -29,8 +29,9 @@ public class GeometryUtils {
     /// relative to RADIUS_OF_EARTH_M which is a slightly better estimate at mid-latitudes.
     public static final double TURF_RADIUS_OF_EARTH_M = 6_371_008.8;
 
-    /// Maximum area allowed for the bounding box of uploaded files -- large enough for the USA.
-    private static final double MAX_BOUNDING_BOX_AREA_SQ_KM = 10_000_000;
+    /// Maximum area allowed for the bounding box of uploaded files -- large enough for Europe, China or the contiguous
+    /// USA, while still rejecting near-global extents from stray or misprojected points.
+    private static final double MAX_BOUNDING_BOX_AREA_SQ_KM = 100_000_000;
 
     /// Estimate distance between points on Earth using a spherical approximation (haversine
     /// formula). In the past, we had a fastDistance function that would estimate this quickly, but
