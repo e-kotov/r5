@@ -4,7 +4,15 @@ name: Java CI
 on:
   # Should catch merged pull requests, pushes to Conveyal PR branches, and tags.
   # The push event's ref reveals the branch name for S3 upload, unlike pull_request which sees the merge target.
-  push
+  push:
+  # Fork prereleases can also be made by manual dispatch with a new tag name, for environments that cannot push tags.
+  # The same build and tests run; the tag is created on the dispatched commit when the release is published.
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'New fork prerelease tag to create on this commit, e.g. v7.6.1-ek.2'
+        required: true
+        type: string
   # Try to catch PRs from outside authors, which don't need to be uploaded to S3.
   # pull_request:
   #   branches:
@@ -41,6 +49,18 @@ jobs:
         distribution: corretto
         java-version: 21
         cache: gradle
+    - name: Prepare dispatched release tag
+      if: github.event_name == 'workflow_dispatch'
+      env:
+        RELEASE_TAG: ${{ inputs.release_tag }}
+      run: |
+        set -euo pipefail
+        [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ek\.[0-9]+$ ]] || { echo "Invalid fork tag: $RELEASE_TAG"; exit 1; }
+        if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" > /dev/null; then
+          echo "Tag $RELEASE_TAG already exists"; exit 1
+        fi
+        # Local tag only, so the build's version string (git describe) and JAR name use the release tag.
+        git tag "$RELEASE_TAG"
     - name: Show version string
       run: gradle -q printVersion | head -n1
     - name: Build and test
@@ -60,14 +80,35 @@ jobs:
         cp analysis.properties.template analysis.properties
         gradle testRunnable -x test
     - name: Create fork prerelease
-      if: github.repository == 'e-kotov/r5' && startsWith(github.ref, 'refs/tags/v')
+      if: >-
+        github.repository == 'e-kotov/r5' &&
+        (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
       env:
         GH_TOKEN: ${{ github.token }}
-      run: >-
-        gh release create "$GITHUB_REF_NAME" build/libs/*-all.jar
-        --prerelease
-        --generate-notes
-        --title "R5 $GITHUB_REF_NAME (Egor Kotov prerelease)"
+        RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+      # Publish the JAR with a SHA-256 checksum file. If docs/release-notes/<tag>.md exists it is used as the
+      # release notes (followed by the checksum and the generated changelog).
+      run: |
+        set -euo pipefail
+        jars=(build/libs/*-all.jar)
+        test "${#jars[@]}" -eq 1
+        jar="${jars[0]}"
+        (cd build/libs && sha256sum "$(basename "$jar")" > "$(basename "$jar").sha256")
+        notes="$RUNNER_TEMP/release-notes.md"
+        if [ -f "docs/release-notes/$RELEASE_TAG.md" ]; then
+          cat "docs/release-notes/$RELEASE_TAG.md" > "$notes"
+        else
+          : > "$notes"
+        fi
+        printf '\n## SHA-256\n\n```\n%s\n```\n' "$(cat "$jar.sha256")" >> "$notes"
+        cat "$notes"
+        # --target creates the tag on this commit if it does not exist yet (dispatched releases).
+        gh release create "$RELEASE_TAG" "$jar" "$jar.sha256" \
+          --target "$GITHUB_SHA" \
+          --prerelease \
+          --generate-notes \
+          --notes-file "$notes" \
+          --title "R5 $RELEASE_TAG (Egor Kotov prerelease)"
     - name: Publish to GH Packages
       # Supply access token to build.gradle (used in publishing.repositories.maven.credentials)
       if: github.repository == 'conveyal/r5'
