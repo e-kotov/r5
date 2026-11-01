@@ -47,6 +47,11 @@ Accepted values, and failures:
 Rejection messages state the computed size, the effective limit and the property that controls it, e.g.
 `Requested number of destinations (1500050000 = width 50000 x height 30001 at zoom 9) exceeds limit (1500000000)...`.
 
+Note: r5r's `build_network()` (as of r5r 2.4.0.9001) catches the street-layer area error and replaces it with a fixed
+message, "Geographic extent of street layer exceeds limit of 975,000 km^2", whatever the effective limit is. The
+configured limit is still applied; only that r5r message is wrong. Grid-size and configuration errors reach R
+unchanged.
+
 ## Validation retained
 
 These checks are unchanged and cannot be configured:
